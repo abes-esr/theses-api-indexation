@@ -1,10 +1,10 @@
 package fr.abes.thesesapiindexation.referencement;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import fr.abes.thesesapiindexation.ThesesApiIndexationApplication;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 import java.io.InputStream;
 
@@ -13,9 +13,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ReferencementIndexProfileTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-            .withUserConfiguration(
-                    ReferencementIndexConfiguration.class,
-                    GatewayTestConfiguration.class
+            .withUserConfiguration(ReferencementIndexConfiguration.class)
+            .withBean(
+                    ReferencementIndexGateway.class,
+                    ReferencementIndexProfileTest::gatewayDeTest
             )
             .withPropertyValues(
                     "referencement.index.name=referencement",
@@ -40,26 +41,32 @@ class ReferencementIndexProfileTest {
                 });
     }
 
-    @Configuration(proxyBeanMethods = false)
-    static class GatewayTestConfiguration {
+    @Test
+    void demarreSansClientElasticsearchHorsDuProfilInitIndex() {
+        new ApplicationContextRunner()
+                .withUserConfiguration(ThesesApiIndexationApplication.class)
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(ElasticsearchClient.class);
+                    assertThat(context).doesNotHaveBean(ReferencementIndexGateway.class);
+                });
+    }
 
-        @Bean
-        ReferencementIndexGateway referencementIndexGateway() {
-            return new ReferencementIndexGateway() {
-                @Override
-                public boolean exists(String indexName) {
-                    return false;
-                }
+    private static ReferencementIndexGateway gatewayDeTest() {
+        return new ReferencementIndexGateway() {
+            @Override
+            public boolean exists(String indexName) {
+                return false;
+            }
 
-                @Override
-                public void create(String indexName, InputStream mapping) {
-                }
+            @Override
+            public void create(String indexName, InputStream mapping) {
+            }
 
-                @Override
-                public InputStream mapping(String indexName) {
-                    return InputStream.nullInputStream();
-                }
-            };
-        }
+            @Override
+            public InputStream mapping(String indexName) {
+                return InputStream.nullInputStream();
+            }
+        };
     }
 }
