@@ -1,0 +1,24 @@
+{
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "pageType": {
+        "type": "keyword"
+      },
+      "noIndex": {
+        "type": "boolean"
+      },
+      "demandeRef": {
+        "type": "keyword",
+        "ignore_above": 64
+      },
+      "updatedBy": {
+        "type": "keyword",
+        "ignore_above": 255
+      },
+      "updatedAt": {
+        "type": "date"
+      }
+    }
+  }
+}
