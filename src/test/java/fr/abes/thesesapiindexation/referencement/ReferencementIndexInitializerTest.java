@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ReferencementIndexInitializerTest {
@@ -151,10 +152,84 @@ class ReferencementIndexInitializerTest {
         assertThat(gateway.createdIndex).isNull();
     }
 
+    @Test
+    void relitLeMappingLorsquUneAutreInstanceCreeLIndexEnPremier() {
+        CapturingReferencementIndexGateway gateway = new CapturingReferencementIndexGateway();
+        gateway.creationFailure = new ReferencementIndexAlreadyExistsException("referencement");
+        gateway.existingMapping = """
+                {
+                  "mappings": {
+                    "dynamic": "strict",
+                    "properties": {
+                      "pageType": { "type": "keyword" },
+                      "noIndex": { "type": "boolean" },
+                      "demandeRef": { "type": "keyword" },
+                      "updatedBy": { "type": "keyword" },
+                      "updatedAt": { "type": "date" }
+                    }
+                  }
+                }
+                """;
+        ReferencementIndexProperties properties = new ReferencementIndexProperties(
+                "referencement",
+                new ClassPathResource("indexs/referencement.json")
+        );
+        ReferencementIndexInitializer initializer = new ReferencementIndexInitializer(gateway, properties);
+
+        assertThatCode(initializer::initialize).doesNotThrowAnyException();
+    }
+
+    @Test
+    void refuseLeMappingIncompatibleCreeParUneAutreInstance() {
+        CapturingReferencementIndexGateway gateway = new CapturingReferencementIndexGateway();
+        gateway.creationFailure = new ReferencementIndexAlreadyExistsException("referencement");
+        gateway.existingMapping = """
+                {
+                  "mappings": {
+                    "dynamic": "strict",
+                    "properties": {
+                      "pageType": { "type": "keyword" },
+                      "noIndex": { "type": "keyword" },
+                      "demandeRef": { "type": "keyword" },
+                      "updatedBy": { "type": "keyword" },
+                      "updatedAt": { "type": "date" }
+                    }
+                  }
+                }
+                """;
+        ReferencementIndexProperties properties = new ReferencementIndexProperties(
+                "referencement",
+                new ClassPathResource("indexs/referencement.json")
+        );
+        ReferencementIndexInitializer initializer = new ReferencementIndexInitializer(gateway, properties);
+
+        assertThatThrownBy(initializer::initialize)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("noIndex")
+                .hasMessageContaining("boolean")
+                .hasMessageContaining("keyword");
+    }
+
+    @Test
+    void propageUneErreurDeCreationQuiNestPasUneConcurrence() {
+        CapturingReferencementIndexGateway gateway = new CapturingReferencementIndexGateway();
+        gateway.creationFailure = new IllegalStateException("connexion Elasticsearch refusée");
+        ReferencementIndexProperties properties = new ReferencementIndexProperties(
+                "referencement",
+                new ClassPathResource("indexs/referencement.json")
+        );
+        ReferencementIndexInitializer initializer = new ReferencementIndexInitializer(gateway, properties);
+
+        assertThatThrownBy(initializer::initialize)
+                .isSameAs(gateway.creationFailure)
+                .hasMessage("connexion Elasticsearch refusée");
+    }
+
     private static class CapturingReferencementIndexGateway implements ReferencementIndexGateway {
 
         private boolean indexExists;
         private String existingMapping;
+        private RuntimeException creationFailure;
         private String createdIndex;
         private String createdMapping;
 
@@ -165,6 +240,9 @@ class ReferencementIndexInitializerTest {
 
         @Override
         public void create(String indexName, InputStream mapping) {
+            if (creationFailure != null) {
+                throw creationFailure;
+            }
             createdIndex = indexName;
             try {
                 createdMapping = new String(mapping.readAllBytes(), StandardCharsets.UTF_8);

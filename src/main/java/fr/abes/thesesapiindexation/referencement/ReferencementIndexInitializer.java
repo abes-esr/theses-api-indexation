@@ -29,7 +29,11 @@ public class ReferencementIndexInitializer {
         }
 
         try (InputStream mapping = properties.mapping().getInputStream()) {
-            gateway.create(properties.name(), mapping);
+            try {
+                gateway.create(properties.name(), mapping);
+            } catch (ReferencementIndexAlreadyExistsException exception) {
+                validateExistingMapping();
+            }
         } catch (IOException exception) {
             throw new IllegalStateException(
                     "Impossible de lire le mapping de l'index " + properties.name(),
