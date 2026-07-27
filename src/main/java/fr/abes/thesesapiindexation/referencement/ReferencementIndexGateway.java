@@ -7,4 +7,6 @@ public interface ReferencementIndexGateway {
     boolean exists(String indexName);
 
     void create(String indexName, InputStream mapping);
+
+    InputStream mapping(String indexName);
 }
