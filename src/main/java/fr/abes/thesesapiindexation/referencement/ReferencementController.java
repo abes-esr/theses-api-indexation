@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@Profile("!init-index")
+@Profile("!init-index & !import-robots")
 @RequestMapping("/api/v1/referencements")
 public class ReferencementController {
 
