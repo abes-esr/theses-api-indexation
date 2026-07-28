@@ -3,6 +3,8 @@ package fr.abes.thesesapiindexation.referencement;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -105,7 +107,12 @@ public class ElasticsearchConfiguration {
 
     @Bean
     JacksonJsonpMapper elasticsearchJsonpMapper() {
-        return new JacksonJsonpMapper();
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.findAndRegisterModules();
+        objectMapper.disable(
+                SerializationFeature.WRITE_DATES_AS_TIMESTAMPS
+        );
+        return new JacksonJsonpMapper(objectMapper);
     }
 
     @Bean(destroyMethod = "")

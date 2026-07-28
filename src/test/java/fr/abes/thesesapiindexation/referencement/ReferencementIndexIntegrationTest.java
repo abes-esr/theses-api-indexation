@@ -7,6 +7,8 @@ import co.elastic.clients.elasticsearch.indices.GetMappingResponse;
 import co.elastic.clients.elasticsearch.indices.get_mapping.IndexMappingRecord;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import fr.abes.thesesapiindexation.ThesesApiIndexationApplication;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
@@ -19,6 +21,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.core.io.ClassPathResource;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
@@ -31,7 +36,9 @@ import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -84,7 +91,12 @@ class ReferencementIndexIntegrationTest {
                         .setDefaultCredentialsProvider(credentialsProvider)
         );
         RestClient restClient = restClientBuilder.build();
-        JacksonJsonpMapper mapper = new JacksonJsonpMapper();
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.findAndRegisterModules();
+        objectMapper.disable(
+                SerializationFeature.WRITE_DATES_AS_TIMESTAMPS
+        );
+        JacksonJsonpMapper mapper = new JacksonJsonpMapper(objectMapper);
         transport = new RestClientTransport(restClient, mapper);
         client = new ElasticsearchClient(transport);
 
@@ -230,5 +242,121 @@ class ReferencementIndexIntegrationTest {
 
         assertThat(finished).as(output).isTrue();
         assertThat(process.exitValue()).as(output).isZero();
+    }
+
+    @ParameterizedTest
+    @MethodSource("documentsToPersist")
+    void ecritEtRelitLesTroisTypesDIdentifiants(
+            String id,
+            ReferencementDocument document
+    ) {
+        initializer.initialize();
+        ReferencementDocumentGateway documentGateway =
+                new ElasticsearchReferencementDocumentGateway(
+                        client,
+                        INDEX_NAME
+                );
+
+        documentGateway.save(id, document);
+
+        assertThat(documentGateway.findById(id)).contains(document);
+    }
+
+    @Test
+    void remplaceLeDocumentLorsDeLaReactivation() {
+        initializer.initialize();
+        ReferencementDocumentGateway documentGateway =
+                new ElasticsearchReferencementDocumentGateway(
+                        client,
+                        INDEX_NAME
+                );
+        ReferencementDocument active = new ReferencementDocument(
+                ReferencementPageType.THESE_SOUTENUE,
+                true,
+                "ABESSTP-12345",
+                "agent@abes.fr",
+                Instant.parse("2026-07-28T09:15:30Z")
+        );
+        ReferencementDocument inactive = new ReferencementDocument(
+                ReferencementPageType.THESE_SOUTENUE,
+                false,
+                "ABESSTP-12345",
+                "agent@abes.fr",
+                Instant.parse("2026-07-28T10:00:00Z")
+        );
+
+        documentGateway.save("2024AIXM0640", active);
+        documentGateway.save("2024AIXM0640", inactive);
+
+        assertThat(documentGateway.findById("2024AIXM0640"))
+                .contains(inactive);
+    }
+
+    @Test
+    void neRemplacePasUnDocumentExistantPendantUnImport() {
+        initializer.initialize();
+        ReferencementDocumentGateway documentGateway =
+                new ElasticsearchReferencementDocumentGateway(
+                        client,
+                        INDEX_NAME
+                );
+        ReferencementDocument existing = new ReferencementDocument(
+                ReferencementPageType.PERSONNE,
+                false,
+                "ABESSTP-12345",
+                "agent@abes.fr",
+                Instant.parse("2026-07-28T09:15:30Z")
+        );
+        ReferencementDocument imported = new ReferencementDocument(
+                ReferencementPageType.PERSONNE,
+                true,
+                "IMPORT-ROBOTS-INITIAL",
+                "robots.txt-importer",
+                Instant.parse("2026-07-28T10:00:00Z")
+        );
+        documentGateway.save("270350292", existing);
+
+        boolean created =
+                documentGateway.createIfAbsent("270350292", imported);
+
+        assertThat(created).isFalse();
+        assertThat(documentGateway.findById("270350292"))
+                .contains(existing);
+    }
+
+    private static Stream<Arguments> documentsToPersist() {
+        Instant updatedAt = Instant.parse("2026-07-28T09:15:30Z");
+        return Stream.of(
+                Arguments.of(
+                        "2024AIXM0640",
+                        new ReferencementDocument(
+                                ReferencementPageType.THESE_SOUTENUE,
+                                true,
+                                "ABESSTP-12345",
+                                "agent@abes.fr",
+                                updatedAt
+                        )
+                ),
+                Arguments.of(
+                        "270350292",
+                        new ReferencementDocument(
+                                ReferencementPageType.PERSONNE,
+                                true,
+                                "ABESSTP-12345",
+                                "agent@abes.fr",
+                                updatedAt
+                        )
+                ),
+                Arguments.of(
+                        "s233841",
+                        new ReferencementDocument(
+                                ReferencementPageType.THESE_EN_PREPARATION,
+                                true,
+                                "ABESSTP-12345",
+                                "agent@abes.fr",
+                                updatedAt
+                        )
+                )
+        );
     }
 }

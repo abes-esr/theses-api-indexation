@@ -7,4 +7,6 @@ public interface ReferencementDocumentGateway {
     Optional<ReferencementDocument> findById(String id);
 
     void save(String id, ReferencementDocument document);
+
+    boolean createIfAbsent(String id, ReferencementDocument document);
 }

@@ -232,5 +232,17 @@ class ReferencementWriteServiceTest {
             savedDocument = document;
             saveCount++;
         }
+
+        @Override
+        public boolean createIfAbsent(
+                String id,
+                ReferencementDocument document
+        ) {
+            if (existingDocument != null) {
+                return false;
+            }
+            save(id, document);
+            return true;
+        }
     }
 }
