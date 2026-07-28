@@ -7,6 +7,7 @@ import co.elastic.clients.elasticsearch.indices.GetMappingResponse;
 import co.elastic.clients.elasticsearch.indices.get_mapping.IndexMappingRecord;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
+import com.sun.net.httpserver.HttpServer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import fr.abes.thesesapiindexation.ThesesApiIndexationApplication;
@@ -32,11 +33,13 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -244,6 +247,129 @@ class ReferencementIndexIntegrationTest {
         assertThat(process.exitValue()).as(output).isZero();
     }
 
+    @Test
+    void importeLeRobotsTxtPuisTermineLeProcessus() throws Exception {
+        initializer.initialize();
+        ReferencementDocumentGateway gateway =
+                new ElasticsearchReferencementDocumentGateway(
+                        client,
+                        INDEX_NAME
+                );
+        ReferencementDocument existing = new ReferencementDocument(
+                ReferencementPageType.PERSONNE,
+                false,
+                "ABESSTP-12345",
+                "agent@abes.fr",
+                Instant.parse("2026-07-27T08:00:00Z")
+        );
+        gateway.save("270350292", existing);
+
+        String robots = String.join("\n", List.of(
+                "Disallow: /2024AIXM0640",
+                "Disallow: /270350292",
+                "Disallow: /s233841",
+                "Disallow: /2024AIXM0640",
+                "Disallow: /2024AIXM0640.bib"
+        ));
+        HttpServer server = HttpServer.create(
+                new InetSocketAddress("127.0.0.1", 0),
+                0
+        );
+        server.createContext("/robots.txt", exchange -> {
+            byte[] body = robots.getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        server.start();
+
+        try {
+            Process process = importProcess(
+                    "http://127.0.0.1:"
+                            + server.getAddress().getPort()
+                            + "/robots.txt"
+            );
+            boolean finished = process.waitFor(20, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly().waitFor();
+            }
+            String output = new String(
+                    process.getInputStream().readAllBytes(),
+                    StandardCharsets.UTF_8
+            );
+
+            assertThat(finished).as(output).isTrue();
+            assertThat(process.exitValue()).as(output).isZero();
+            assertThat(output).contains(
+                    "lignes=5, valides=3, doublons=1, ignorées=1, "
+                            + "invalides=0, créés=2, existants=1"
+            );
+            assertThat(gateway.findById("2024AIXM0640"))
+                    .get()
+                    .extracting(
+                            ReferencementDocument::pageType,
+                            ReferencementDocument::noIndex,
+                            ReferencementDocument::demandeRef,
+                            ReferencementDocument::updatedBy
+                    )
+                    .containsExactly(
+                            ReferencementPageType.THESE_SOUTENUE,
+                            true,
+                            "IMPORT-ROBOTS-INITIAL",
+                            "robots.txt-importer"
+                    );
+            assertThat(gateway.findById("270350292"))
+                    .contains(existing);
+            assertThat(gateway.findById("s233841"))
+                    .get()
+                    .extracting(ReferencementDocument::pageType)
+                    .isEqualTo(
+                            ReferencementPageType.THESE_EN_PREPARATION
+                    );
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void echoueSansEcrireQuandLaSourceHttpEstIndisponible()
+            throws Exception {
+        initializer.initialize();
+        HttpServer server = HttpServer.create(
+                new InetSocketAddress("127.0.0.1", 0),
+                0
+        );
+        server.createContext("/robots.txt", exchange -> {
+            exchange.sendResponseHeaders(503, -1);
+            exchange.close();
+        });
+        server.start();
+
+        try {
+            Process process = importProcess(
+                    "http://127.0.0.1:"
+                            + server.getAddress().getPort()
+                            + "/robots.txt"
+            );
+            boolean finished = process.waitFor(20, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly().waitFor();
+            }
+            String output = new String(
+                    process.getInputStream().readAllBytes(),
+                    StandardCharsets.UTF_8
+            );
+
+            assertThat(finished).as(output).isTrue();
+            assertThat(process.exitValue()).as(output).isNotZero();
+            assertThat(client.count(
+                    request -> request.index(INDEX_NAME)
+            ).count()).isZero();
+        } finally {
+            server.stop(0);
+        }
+    }
+
     @ParameterizedTest
     @MethodSource("documentsToPersist")
     void ecritEtRelitLesTroisTypesDIdentifiants(
@@ -358,5 +484,29 @@ class ReferencementIndexIntegrationTest {
                         )
                 )
         );
+    }
+
+    private Process importProcess(String robotsUrl) throws IOException {
+        return new ProcessBuilder(
+                Path.of(
+                        System.getProperty("java.home"),
+                        "bin",
+                        "java"
+                ).toString(),
+                "-cp",
+                System.getProperty("surefire.test.class.path"),
+                ThesesApiIndexationApplication.class.getName(),
+                "--spring.profiles.active=import-robots",
+                "--es.hostname=" + ELASTICSEARCH.getHost(),
+                "--es.port=" + ELASTICSEARCH.getMappedPort(9200),
+                "--es.protocol=https",
+                "--es.username=elastic",
+                "--es.password=changeme",
+                "--es.ca-certificate=" + caCertificate.toUri(),
+                "--referencement.index.name=" + INDEX_NAME,
+                "--referencement.robots.url=" + robotsUrl
+        )
+                .redirectErrorStream(true)
+                .start();
     }
 }

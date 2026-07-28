@@ -1,20 +1,20 @@
 package fr.abes.thesesapiindexation.referencement.robots;
 
+import com.sun.net.httpserver.HttpServer;
+import fr.abes.thesesapiindexation.ThesesApiIndexationApplication;
 import fr.abes.thesesapiindexation.referencement.ReferencementDocument;
 import fr.abes.thesesapiindexation.referencement.ReferencementDocumentGateway;
 import fr.abes.thesesapiindexation.referencement.ReferencementController;
 import fr.abes.thesesapiindexation.referencement.ReferencementWriteService;
-import fr.abes.thesesapiindexation.ThesesApiIndexationApplication;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
 import org.springframework.web.context.WebApplicationContext;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -84,10 +84,19 @@ class RobotsTxtImportProfileTest {
     }
 
     @Test
-    void demarreSansContexteWeb() {
+    void demarreSansContexteWeb() throws IOException {
+        HttpServer server = HttpServer.create(
+                new InetSocketAddress("127.0.0.1", 0),
+                0
+        );
+        server.createContext("/robots.txt", exchange -> {
+            exchange.sendResponseHeaders(200, -1);
+            exchange.close();
+        });
+        server.start();
+
         SpringApplication application = new SpringApplication(
-                ThesesApiIndexationApplication.class,
-                EmptyRobotsSourceConfiguration.class
+                ThesesApiIndexationApplication.class
         );
         application.setAdditionalProfiles("import-robots");
         application.setDefaultProperties(Map.of(
@@ -96,20 +105,25 @@ class RobotsTxtImportProfileTest {
                 "es.port", "9200",
                 "es.protocol", "http"
         ));
+        String robotsUrl = "http://127.0.0.1:"
+                + server.getAddress().getPort()
+                + "/robots.txt";
 
         try (ConfigurableApplicationContext context =
-                     application.run()) {
+                     application.run(
+                             "--referencement.robots.url=" + robotsUrl
+                     )) {
             assertThat(context)
                     .isNotInstanceOf(WebApplicationContext.class);
             RobotsTxtProperties properties =
                     context.getBean(RobotsTxtProperties.class);
-            assertThat(properties.url()).hasToString(
-                    "https://theses.fr/robots.txt"
-            );
+            assertThat(properties.url()).hasToString(robotsUrl);
             assertThat(properties.connectTimeout())
                     .isEqualTo(java.time.Duration.ofSeconds(5));
             assertThat(properties.readTimeout())
                     .isEqualTo(java.time.Duration.ofSeconds(30));
+        } finally {
+            server.stop(0);
         }
     }
 
@@ -147,13 +161,4 @@ class RobotsTxtImportProfileTest {
         );
     }
 
-    @TestConfiguration(proxyBeanMethods = false)
-    static class EmptyRobotsSourceConfiguration {
-
-        @Bean
-        @Primary
-        RobotsTxtSource emptyRobotsTxtSource() {
-            return () -> "";
-        }
-    }
 }
