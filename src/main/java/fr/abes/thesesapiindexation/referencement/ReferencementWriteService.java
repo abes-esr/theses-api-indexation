@@ -18,6 +18,13 @@ public class ReferencementWriteService {
             String id,
             ReferencementWriteCommand command
     ) {
+        if (!command.pageType().accepts(id)) {
+            throw new ReferencementValidationException(
+                    id,
+                    command.pageType()
+            );
+        }
+
         var existingDocument = gateway.findById(id);
         if (existingDocument
                 .filter(document -> hasSameRequestedState(document, command))
