@@ -134,6 +134,104 @@ class ReferencementWriteServiceTest {
     }
 
     @ParameterizedTest
+    @MethodSource("validIdentifiers")
+    void deduitLeTypeDepuisUnIdentifiantCanonique(
+            ReferencementPageType expected,
+            String id
+    ) {
+        assertThat(ReferencementPageType.fromIdentifier(id))
+                .contains(expected);
+    }
+
+    @Test
+    void neDeduitAucunTypePourUnIdentifiantInvalide() {
+        assertThat(ReferencementPageType.fromIdentifier(
+                "2024AIXM0640.bib"
+        )).isEmpty();
+    }
+
+    @Test
+    void creeUnDocumentImporteUniquementSilEstAbsent() {
+        RecordingGateway gateway = new RecordingGateway();
+        ReferencementWriteService service = new ReferencementWriteService(
+                gateway,
+                Clock.fixed(NOW, ZoneOffset.UTC)
+        );
+        ReferencementWriteCommand command = new ReferencementWriteCommand(
+                ReferencementPageType.PERSONNE,
+                true,
+                "IMPORT-ROBOTS-INITIAL",
+                "robots.txt-importer"
+        );
+
+        boolean created = service.createIfAbsent("270350292", command);
+
+        assertThat(created).isTrue();
+        assertThat(gateway.createdId).isEqualTo("270350292");
+        assertThat(gateway.createdDocument).isEqualTo(
+                new ReferencementDocument(
+                        ReferencementPageType.PERSONNE,
+                        true,
+                        "IMPORT-ROBOTS-INITIAL",
+                        "robots.txt-importer",
+                        NOW
+                )
+        );
+        assertThat(gateway.findCount).isZero();
+        assertThat(gateway.saveCount).isZero();
+    }
+
+    @Test
+    void signaleUnDocumentExistantSansLeModifier() {
+        RecordingGateway gateway = new RecordingGateway();
+        gateway.createResult = false;
+        ReferencementWriteService service = new ReferencementWriteService(
+                gateway,
+                Clock.fixed(NOW, ZoneOffset.UTC)
+        );
+
+        boolean created = service.createIfAbsent(
+                "270350292",
+                new ReferencementWriteCommand(
+                        ReferencementPageType.PERSONNE,
+                        true,
+                        "IMPORT-ROBOTS-INITIAL",
+                        "robots.txt-importer"
+                )
+        );
+
+        assertThat(created).isFalse();
+        assertThat(gateway.findCount).isZero();
+        assertThat(gateway.saveCount).isZero();
+    }
+
+    @Test
+    void rejetteUnIdentifiantImporteIncompatible() {
+        RecordingGateway gateway = new RecordingGateway();
+        ReferencementWriteService service = new ReferencementWriteService(
+                gateway,
+                Clock.fixed(NOW, ZoneOffset.UTC)
+        );
+
+        assertThatThrownBy(() -> service.createIfAbsent(
+                "s233841",
+                new ReferencementWriteCommand(
+                        ReferencementPageType.PERSONNE,
+                        true,
+                        "IMPORT-ROBOTS-INITIAL",
+                        "robots.txt-importer"
+                )
+        ))
+                .isInstanceOf(ReferencementValidationException.class)
+                .hasMessageContaining("s233841")
+                .hasMessageContaining(
+                        ReferencementPageType.PERSONNE.name()
+                );
+
+        assertThat(gateway.createdId).isNull();
+    }
+
+    @ParameterizedTest
     @MethodSource("invalidIdentifiers")
     void rejetteUnIdentifiantIncompatible(
             ReferencementPageType pageType,
@@ -217,6 +315,9 @@ class ReferencementWriteServiceTest {
         private String savedId;
         private ReferencementDocument savedDocument;
         private ReferencementDocument existingDocument;
+        private String createdId;
+        private ReferencementDocument createdDocument;
+        private boolean createResult = true;
         private int findCount;
         private int saveCount;
 
@@ -238,11 +339,9 @@ class ReferencementWriteServiceTest {
                 String id,
                 ReferencementDocument document
         ) {
-            if (existingDocument != null) {
-                return false;
-            }
-            save(id, document);
-            return true;
+            createdId = id;
+            createdDocument = document;
+            return createResult;
         }
     }
 }

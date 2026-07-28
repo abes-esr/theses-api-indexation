@@ -18,12 +18,7 @@ public class ReferencementWriteService {
             String id,
             ReferencementWriteCommand command
     ) {
-        if (!command.pageType().accepts(id)) {
-            throw new ReferencementValidationException(
-                    id,
-                    command.pageType()
-            );
-        }
+        validate(id, command);
 
         var existingDocument = gateway.findById(id);
         if (existingDocument
@@ -35,15 +30,41 @@ public class ReferencementWriteService {
             );
         }
 
-        ReferencementDocument document = new ReferencementDocument(
+        ReferencementDocument document = toDocument(command);
+        gateway.save(id, document);
+        return new ReferencementWriteResult(id, document);
+    }
+
+    public boolean createIfAbsent(
+            String id,
+            ReferencementWriteCommand command
+    ) {
+        validate(id, command);
+        return gateway.createIfAbsent(id, toDocument(command));
+    }
+
+    private void validate(
+            String id,
+            ReferencementWriteCommand command
+    ) {
+        if (!command.pageType().accepts(id)) {
+            throw new ReferencementValidationException(
+                    id,
+                    command.pageType()
+            );
+        }
+    }
+
+    private ReferencementDocument toDocument(
+            ReferencementWriteCommand command
+    ) {
+        return new ReferencementDocument(
                 command.pageType(),
                 command.noIndex(),
                 command.demandeRef(),
                 command.updatedBy(),
                 clock.instant()
         );
-        gateway.save(id, document);
-        return new ReferencementWriteResult(id, document);
     }
 
     private boolean hasSameRequestedState(

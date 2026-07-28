@@ -1,5 +1,7 @@
 package fr.abes.thesesapiindexation.referencement;
 
+import java.util.Arrays;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 public enum ReferencementPageType {
@@ -17,5 +19,13 @@ public enum ReferencementPageType {
     public boolean accepts(String identifier) {
         return identifier != null
                 && identifierPattern.matcher(identifier).matches();
+    }
+
+    public static Optional<ReferencementPageType> fromIdentifier(
+            String identifier
+    ) {
+        return Arrays.stream(values())
+                .filter(pageType -> pageType.accepts(identifier))
+                .findFirst();
     }
 }
