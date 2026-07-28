@@ -17,7 +17,6 @@ import org.elasticsearch.client.RestClientBuilder;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 import org.springframework.core.io.Resource;
 import org.springframework.util.StringUtils;
 
@@ -30,7 +29,6 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 
 @Configuration(proxyBeanMethods = false)
-@Profile("init-index")
 @EnableConfigurationProperties(ElasticsearchConnectionProperties.class)
 public class ElasticsearchConfiguration {
 
@@ -129,16 +127,5 @@ public class ElasticsearchConfiguration {
     @Bean
     ElasticsearchClient elasticsearchClient(RestClientTransport elasticsearchTransport) {
         return new ElasticsearchClient(elasticsearchTransport);
-    }
-
-    @Bean
-    ReferencementIndexGateway referencementIndexGateway(
-            ElasticsearchClient elasticsearchClient,
-            JacksonJsonpMapper elasticsearchJsonpMapper
-    ) {
-        return new ElasticsearchReferencementIndexGateway(
-                elasticsearchClient,
-                elasticsearchJsonpMapper
-        );
     }
 }

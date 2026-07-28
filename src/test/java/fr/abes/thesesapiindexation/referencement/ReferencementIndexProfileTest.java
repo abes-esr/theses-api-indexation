@@ -38,17 +38,33 @@ class ReferencementIndexProfileTest {
                 .run(context -> {
                     assertThat(context).hasSingleBean(ReferencementIndexInitializer.class);
                     assertThat(context).hasSingleBean(ApplicationRunner.class);
+                    assertThat(context).hasSingleBean(ReferencementIndexGateway.class);
+                    assertThat(context)
+                            .doesNotHaveBean(ReferencementWriteService.class);
                 });
     }
 
     @Test
-    void demarreSansClientElasticsearchHorsDuProfilInitIndex() {
+    void chargeLeClientEtLeServiceDEcritureHorsDuProfilInitIndex() {
         new ApplicationContextRunner()
                 .withUserConfiguration(ThesesApiIndexationApplication.class)
+                .withPropertyValues(
+                        "es.hostname=localhost",
+                        "es.port=9200",
+                        "es.protocol=http"
+                )
                 .run(context -> {
                     assertThat(context).hasNotFailed();
-                    assertThat(context).doesNotHaveBean(ElasticsearchClient.class);
-                    assertThat(context).doesNotHaveBean(ReferencementIndexGateway.class);
+                    assertThat(context)
+                            .hasSingleBean(ElasticsearchClient.class);
+                    assertThat(context)
+                            .hasSingleBean(ReferencementDocumentGateway.class);
+                    assertThat(context)
+                            .hasSingleBean(ReferencementWriteService.class);
+                    assertThat(context)
+                            .doesNotHaveBean(ReferencementIndexGateway.class);
+                    assertThat(context)
+                            .doesNotHaveBean(ReferencementIndexInitializer.class);
                 });
     }
 
