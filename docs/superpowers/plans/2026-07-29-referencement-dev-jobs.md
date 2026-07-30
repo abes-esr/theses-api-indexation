@@ -169,11 +169,9 @@ jobs:
       - name: "Login to DockerHub"
         uses: docker/login-action@v4
         if: >-
-          github.event_name != 'pull_request' &&
+          github.event_name == 'push' &&
           (github.ref == 'refs/heads/main' ||
-          github.ref == 'refs/heads/test' ||
-          github.ref == 'refs/heads/develop' ||
-          startsWith(github.ref, 'refs/tags/'))
+          github.ref == 'refs/heads/develop')
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -183,14 +181,17 @@ jobs:
         with:
           context: .
           push: >-
-            ${{ github.event_name != 'pull_request' &&
+            ${{ github.event_name == 'push' &&
             (github.ref == 'refs/heads/main' ||
-            github.ref == 'refs/heads/test' ||
-            github.ref == 'refs/heads/develop' ||
-            startsWith(github.ref, 'refs/tags/')) }}
+            github.ref == 'refs/heads/develop') }}
           target: api-indexation-image
           tags: ${{ steps.docker_tag_meta.outputs.tags }}-${{ env.NAMESPACE }}
 ```
+
+La connexion et la publication Docker Hub ont lieu uniquement pour un
+événement `push` sur `refs/heads/develop` ou `refs/heads/main`.
+`workflow_dispatch`, les autres branches et les tags construisent et testent
+sans publier.
 
 - [ ] **Step 6: Contrôler le diff et reconstruire**
 

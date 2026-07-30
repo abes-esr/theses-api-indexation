@@ -69,6 +69,11 @@ Pour un push sur `develop`, l’image publiée est :
 abesesr/theses:develop-api-indexation
 ```
 
+La connexion et la publication Docker Hub sont autorisées uniquement pour un
+événement `push` sur `develop` ou `main`. Les autres branches, les tags et
+`workflow_dispatch` peuvent construire et vérifier l’image, mais ne la
+publient pas.
+
 Le conteneur conserve le point d’entrée standard de l’application. Le profil
 Spring est fourni par la configuration Docker Compose de chaque job.
 
