@@ -54,7 +54,10 @@ Construire et publier une image Docker de `theses-api-indexation`, l’intégrer
 Le dépôt fournit :
 
 - un `Dockerfile` multiétage basé sur Java 17 ;
-- une étape Maven qui exécute les tests et produit le JAR ;
+- un workflow GitHub Actions qui exécute `mvn --batch-mode clean verify`
+  avant la construction de l’image ;
+- une étape Maven dans le Dockerfile qui produit le JAR avec
+  `-DskipTests`, sans réexécuter les tests Testcontainers ;
 - une image d’exécution JRE 17 ;
 - une cible Docker nommée `api-indexation-image` ;
 - un workflow GitHub Actions aligné sur celui de
@@ -227,8 +230,15 @@ Dans `theses-api-indexation` :
 
 ```bash
 mvn --batch-mode clean verify
-docker build --target api-indexation-image .
+docker build --target api-indexation-image \
+  --tag theses-api-indexation:dev-test \
+  .
+docker image inspect theses-api-indexation:dev-test
 ```
+
+La vérification Maven et le packaging Docker sont deux étapes distinctes :
+les tests, notamment ceux fondés sur Testcontainers, s’exécutent avant le
+build Docker ; le build produit ensuite le JAR sans les réexécuter.
 
 Dans `theses-docker` :
 

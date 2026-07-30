@@ -5,11 +5,7 @@ COPY pom.xml .
 RUN mvn --batch-mode dependency:go-offline
 
 COPY src ./src
-RUN mvn --batch-mode \
-    -Dmaven.test.skip=false \
-    -Duser.timezone=Europe/Paris \
-    -Duser.language=fr \
-    package
+RUN mvn --batch-mode -DskipTests package
 
 FROM eclipse-temurin:17-jre AS api-indexation-image
 WORKDIR /app

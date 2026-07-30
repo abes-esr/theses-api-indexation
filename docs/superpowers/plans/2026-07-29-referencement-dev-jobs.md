@@ -95,11 +95,7 @@ COPY pom.xml .
 RUN mvn --batch-mode dependency:go-offline
 
 COPY src ./src
-RUN mvn --batch-mode \
-    -Dmaven.test.skip=false \
-    -Duser.timezone=Europe/Paris \
-    -Duser.language=fr \
-    package
+RUN mvn --batch-mode -DskipTests package
 
 FROM eclipse-temurin:17-jre AS api-indexation-image
 WORKDIR /app
@@ -123,8 +119,9 @@ docker build `
 docker image inspect theses-api-indexation:dev-test
 ```
 
-Expected: la construction exécute la suite Maven et l’image possède un
-`Entrypoint` Java vers `/app/theses-api-indexation.jar`.
+Expected: la construction produit le JAR sans réexécuter les tests
+Testcontainers et l’image possède un `Entrypoint` Java vers
+`/app/theses-api-indexation.jar`.
 
 - [ ] **Step 5: Ajouter le workflow de publication**
 
@@ -149,6 +146,16 @@ jobs:
     steps:
       - name: "Build: checkout source code"
         uses: actions/checkout@v6
+
+      - name: "Set up Java 17"
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: "Test: Maven verify"
+        run: mvn --batch-mode clean verify
 
       - name: "Push: prepare version from git tags/branches"
         id: docker_tag_meta
@@ -199,8 +206,10 @@ docker build `
 git status --short
 ```
 
-Expected: seuls `.dockerignore`, `Dockerfile` et le workflow sont modifiés,
-et les trois validations réussissent.
+Expected: `.dockerignore`, `Dockerfile`, le workflow, la spécification et le
+plan portent uniquement les modifications prévues, et les trois validations
+réussissent. La suite Maven est exécutée avant le build Docker ; le build
+package ensuite le JAR avec `-DskipTests`.
 
 - [ ] **Step 7: Commit**
 
@@ -506,7 +515,8 @@ ponctuels de référencement en DEV.
 ## Changements
 
 - Dockerfile multiétage Java 17 ;
-- exécution des tests Maven pendant la construction ;
+- exécution de `mvn --batch-mode clean verify` avant la construction ;
+- packaging du JAR avec `-DskipTests` dans le Dockerfile ;
 - cible `api-indexation-image` ;
 - workflow Buildx publiant `abesesr/theses:develop-api-indexation`.
 
