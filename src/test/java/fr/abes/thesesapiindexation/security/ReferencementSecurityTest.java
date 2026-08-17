@@ -126,8 +126,7 @@ class ReferencementSecurityTest {
                 {
                   "pageType": "THESE_SOUTENUE",
                   "noIndex": true,
-                  "demandeRef": "ABESSTP-12345",
-                  "updatedBy": "agent@abes.fr"
+                  "demandeRef": "ABESSTP-12345"
                 }
                 """;
     }

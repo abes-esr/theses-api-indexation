@@ -14,10 +14,15 @@ Content-Type: application/json
 {
   "pageType": "THESE_SOUTENUE",
   "noIndex": true,
-  "demandeRef": "ABESSTP-12345",
-  "updatedBy": "agent@abes.fr"
+  "demandeRef": "ABESSTP-12345"
 }
 ```
+
+L’auteur de la modification n’est jamais accepté dans le JSON. Il est produit
+par le serveur à partir de l’en-tête Shibboleth `eppn`. Cet ePPN doit figurer
+dans la liste fermée `THESES_NOINDEX_ALLOWED_EPPNS` (valeurs séparées par des
+virgules). Une liste vide refuse toutes les écritures. L’absence d’identité
+retourne `401` et une identité non autorisée retourne `403`.
 
 Les types acceptés sont :
 
