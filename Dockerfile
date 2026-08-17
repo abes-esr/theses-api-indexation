@@ -10,6 +10,10 @@ RUN mvn --batch-mode -DskipTests package
 FROM eclipse-temurin:17-jre AS api-indexation-image
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=build-image \
     /build/target/theses-api-indexation-0.1.0-SNAPSHOT.jar \
     /app/theses-api-indexation.jar

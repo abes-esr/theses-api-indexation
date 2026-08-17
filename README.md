@@ -37,6 +37,11 @@ L’API doit rester sur le réseau interne. Les paramètres Elasticsearch sont
 fournis par `ES_HOSTNAME`, `ES_PORT`, `ES_PROTOCOL`, `ES_USERNAME`,
 `ES_PASSWORD` et `ES_CA_CERTIFICATE`.
 
+Le service expose uniquement `GET /actuator/health` pour son healthcheck
+Docker. Cette santé vérifie que le processus HTTP répond, sans publier de
+détails internes ; l’accès Elasticsearch est contrôlé séparément lors de la
+recette et par les appels métier.
+
 ## Import initial du robots.txt
 
 L’import ponctuel lit par défaut `https://theses.fr/robots.txt`, crée les
