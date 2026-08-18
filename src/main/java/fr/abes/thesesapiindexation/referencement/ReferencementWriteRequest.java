@@ -7,11 +7,10 @@ import jakarta.validation.constraints.Size;
 public record ReferencementWriteRequest(
         @NotNull ReferencementPageType pageType,
         @NotNull Boolean noIndex,
-        @NotBlank @Size(max = 64) String demandeRef,
-        @NotBlank @Size(max = 255) String updatedBy
+        @NotBlank @Size(max = 64) String demandeRef
 ) {
 
-    ReferencementWriteCommand toCommand() {
+    ReferencementWriteCommand toCommand(String updatedBy) {
         return new ReferencementWriteCommand(
                 pageType,
                 noIndex,

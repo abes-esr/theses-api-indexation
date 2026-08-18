@@ -3,6 +3,7 @@ package fr.abes.thesesapiindexation.referencement;
 import jakarta.validation.Valid;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,10 +24,14 @@ public class ReferencementController {
     @PutMapping("/{identifiant}")
     ResponseEntity<ReferencementWriteResponse> write(
             @PathVariable String identifiant,
-            @Valid @RequestBody ReferencementWriteRequest request
+            @Valid @RequestBody ReferencementWriteRequest request,
+            Authentication authentication
     ) {
         ReferencementWriteResult result =
-                service.write(identifiant, request.toCommand());
+                service.write(
+                        identifiant,
+                        request.toCommand(authentication.getName())
+                );
         return ResponseEntity.ok(
                 ReferencementWriteResponse.from(result)
         );

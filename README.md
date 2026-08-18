@@ -14,10 +14,15 @@ Content-Type: application/json
 {
   "pageType": "THESE_SOUTENUE",
   "noIndex": true,
-  "demandeRef": "ABESSTP-12345",
-  "updatedBy": "agent@abes.fr"
+  "demandeRef": "ABESSTP-12345"
 }
 ```
+
+L’auteur de la modification n’est jamais accepté dans le JSON. Il est produit
+par le serveur à partir de l’en-tête Shibboleth `eppn`. Cet ePPN doit figurer
+dans la liste fermée `THESES_NOINDEX_ALLOWED_EPPNS` (valeurs séparées par des
+virgules). Une liste vide refuse toutes les écritures. L’absence d’identité
+retourne `401` et une identité non autorisée retourne `403`.
 
 Les types acceptés sont :
 
@@ -31,6 +36,11 @@ Elasticsearch est conservé.
 L’API doit rester sur le réseau interne. Les paramètres Elasticsearch sont
 fournis par `ES_HOSTNAME`, `ES_PORT`, `ES_PROTOCOL`, `ES_USERNAME`,
 `ES_PASSWORD` et `ES_CA_CERTIFICATE`.
+
+Le service expose uniquement `GET /actuator/health` pour son healthcheck
+Docker. Cette santé vérifie que le processus HTTP répond, sans publier de
+détails internes ; l’accès Elasticsearch est contrôlé séparément lors de la
+recette et par les appels métier.
 
 ## Import initial du robots.txt
 

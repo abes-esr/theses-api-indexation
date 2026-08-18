@@ -1,10 +1,13 @@
 package fr.abes.thesesapiindexation.referencement;
 
+import fr.abes.thesesapiindexation.security.ReferencementSecurityConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.io.IOException;
@@ -19,6 +22,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(ReferencementController.class)
+@Import(ReferencementSecurityConfiguration.class)
+@TestPropertySource(properties =
+        "referencement.security.allowed-eppns=agent@abes.fr")
 class ReferencementControllerTest {
 
     @Autowired
@@ -29,30 +35,37 @@ class ReferencementControllerTest {
 
     @Test
     void activeNoIndexEtRetourneLEtatComplet() throws Exception {
-        ReferencementDocument document = new ReferencementDocument(
-                ReferencementPageType.THESE_SOUTENUE,
-                true,
-                "ABESSTP-12345",
-                "agent@abes.fr",
-                Instant.parse("2026-07-28T09:15:30Z")
-        );
         given(service.write(eq("2024AIXM0640"), any()))
-                .willReturn(new ReferencementWriteResult(
-                        "2024AIXM0640",
-                        document
-                ));
+                .willAnswer(invocation -> {
+                    ReferencementWriteCommand command =
+                            invocation.getArgument(1);
+                    ReferencementDocument document =
+                            new ReferencementDocument(
+                                    ReferencementPageType.THESE_SOUTENUE,
+                                    true,
+                                    "ABESSTP-12345",
+                                    command.updatedBy(),
+                                    Instant.parse(
+                                            "2026-07-28T09:15:30Z"
+                                    )
+                            );
+                    return new ReferencementWriteResult(
+                            "2024AIXM0640",
+                            document
+                    );
+                });
 
         mockMvc.perform(put(
                         "/api/v1/referencements/{identifiant}",
                         "2024AIXM0640"
                 )
+                        .header("eppn", "Agent@Abes.fr")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
                                   "pageType": "THESE_SOUTENUE",
                                   "noIndex": true,
-                                  "demandeRef": "ABESSTP-12345",
-                                  "updatedBy": "agent@abes.fr"
+                                  "demandeRef": "ABESSTP-12345"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -78,12 +91,12 @@ class ReferencementControllerTest {
                         "/api/v1/referencements/{identifiant}",
                         "2024AIXM0640"
                 )
+                        .header("eppn", "agent@abes.fr")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
                                   "pageType": "THESE_SOUTENUE",
-                                  "demandeRef": "ABESSTP-12345",
-                                  "updatedBy": "agent@abes.fr"
+                                  "demandeRef": "ABESSTP-12345"
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
@@ -95,19 +108,19 @@ class ReferencementControllerTest {
     }
 
     @Test
-    void rejetteUnChampJsonInconnu() throws Exception {
+    void rejetteUpdatedByFourniParLeClient() throws Exception {
         mockMvc.perform(put(
                         "/api/v1/referencements/{identifiant}",
                         "2024AIXM0640"
                 )
+                        .header("eppn", "agent@abes.fr")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
                                   "pageType": "THESE_SOUTENUE",
                                   "noIndex": true,
                                   "demandeRef": "ABESSTP-12345",
-                                  "updatedBy": "agent@abes.fr",
-                                  "motifLibre": "interdit"
+                                  "updatedBy": "usurpation@abes.fr"
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
@@ -128,13 +141,13 @@ class ReferencementControllerTest {
                         "/api/v1/referencements/{identifiant}",
                         "s233841"
                 )
+                        .header("eppn", "agent@abes.fr")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
                                   "pageType": "THESE_SOUTENUE",
                                   "noIndex": true,
-                                  "demandeRef": "ABESSTP-12345",
-                                  "updatedBy": "agent@abes.fr"
+                                  "demandeRef": "ABESSTP-12345"
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
@@ -155,13 +168,13 @@ class ReferencementControllerTest {
                         "/api/v1/referencements/{identifiant}",
                         "2024AIXM0640"
                 )
+                        .header("eppn", "agent@abes.fr")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
                                   "pageType": "THESE_SOUTENUE",
                                   "noIndex": true,
-                                  "demandeRef": "ABESSTP-12345",
-                                  "updatedBy": "agent@abes.fr"
+                                  "demandeRef": "ABESSTP-12345"
                                 }
                                 """))
                 .andExpect(status().isServiceUnavailable())
