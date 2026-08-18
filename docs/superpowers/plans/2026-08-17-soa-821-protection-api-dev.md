@@ -253,7 +253,12 @@ docker compose --profile referencement-jobs config --quiet
 docker compose config --format json
 ```
 
-Contrôler dans le JSON : service présent sans profil, aucun port publié, port 8994 seulement exposé, healthcheck présent, certificat en lecture seule, route exclusivement protégée, rôles reader/writer exacts. Exécuter aussi `git diff --check`.
+Contrôler dans le JSON : service présent sans profil, aucun port publié, port
+8994 seulement exposé, healthcheck présent, certificat en lecture seule, route
+exclusivement protégée, rôles reader/writer exacts. Vérifier aussi que l’API
+n’est pas membre du réseau Docker partagé : un réseau interne ne contient que
+le proxy et l’API, et un second ne contient qu’Elasticsearch et l’API. Exécuter
+aussi `git diff --check`.
 
 **Step 8: Commit**
 

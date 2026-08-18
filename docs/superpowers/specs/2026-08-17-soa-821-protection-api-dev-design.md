@@ -65,9 +65,10 @@ index referencement
 ```
 
 Le service n’a aucun port publié sur l’hôte. Le reverse proxy est le seul point
-d’entrée depuis l’extérieur de la pile Docker. Le réseau Docker interne reste
-considéré comme une zone de confiance pour cette première passe ; aucun service
-TEST ou PROD n’est modifié.
+d’entrée depuis l’extérieur de la pile Docker. L’API ne rejoint pas le réseau
+Docker partagé : elle utilise un réseau interne avec le seul reverse proxy et
+un second réseau interne avec le seul service Elasticsearch. Aucun service TEST
+ou PROD n’est modifié.
 
 ## Routage HTTP
 
@@ -313,8 +314,9 @@ l’index existant.
   rejoués en recette.
 - **Divergence de mapping** : `init-index` reste l’unique mécanisme de création
   et de validation du mapping versionné.
-- **Compromission d’un autre conteneur du réseau Docker** : risque résiduel
-  accepté pour cette première passe ; aucun accès depuis l’hôte n’est ouvert.
+- **Usurpation de l’en-tête `eppn` par un autre conteneur** : l’API est isolée
+  du réseau Docker partagé ; seuls le reverse proxy et Elasticsearch partagent
+  chacun un réseau interne distinct avec elle.
 
 ## Critères d’acceptation
 
@@ -322,8 +324,8 @@ SOA-821 est validé en DEV lorsque :
 
 1. le service permanent est `healthy` ;
 2. son port n’est pas publié sur l’hôte ;
-3. la route d’administration passe uniquement par un chemin Shibboleth
-   protégé ;
+3. l’API est absente du réseau Docker partagé et la route d’administration
+   passe uniquement par le réseau interne du proxy Shibboleth ;
 4. seuls les ePPN explicitement autorisés obtiennent `200` ;
 5. `updatedBy` est produit par le serveur depuis l’ePPN ;
 6. les rôles Elasticsearch respectent les privilèges attendus ;
