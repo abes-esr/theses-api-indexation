@@ -65,13 +65,13 @@ public class ElasticsearchReferencementDocumentGateway
                     .opType(OpType.Create)
                     .document(document));
             return true;
-        } catch (ElasticsearchException exception) {
-            if (VERSION_CONFLICT.equals(exception.error().type())) {
+        } catch (ElasticsearchException | IOException exception) {
+            if (exception instanceof ElasticsearchException esException
+                    && VERSION_CONFLICT.equals(esException.error().type())) {
                 return false;
             }
-            throw accessFailure("créer", id, exception);
-        } catch (IOException exception) {
-            if (isVersionConflict(exception)) {
+            if (exception instanceof IOException ioException
+                    && isVersionConflict(ioException)) {
                 return false;
             }
             throw accessFailure("créer", id, exception);

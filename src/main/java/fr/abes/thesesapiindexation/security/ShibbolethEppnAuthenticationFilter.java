@@ -10,6 +10,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -39,12 +40,10 @@ public class ShibbolethEppnAuthenticationFilter
         );
         if (!values.isEmpty()) {
             String eppn = normalize(values);
-            List<SimpleGrantedAuthority> authorities =
-                    properties.allowedEppns().contains(eppn)
-                            ? List.of(new SimpleGrantedAuthority(
-                                    NOINDEX_ADMIN
-                            ))
-                            : List.of();
+            List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+            if (properties.allowedEppns().contains(eppn)) {
+                authorities.add(new SimpleGrantedAuthority(NOINDEX_ADMIN));
+            }
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(
                             eppn,

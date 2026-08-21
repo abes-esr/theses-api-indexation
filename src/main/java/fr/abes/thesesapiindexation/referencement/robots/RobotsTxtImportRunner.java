@@ -20,34 +20,30 @@ public class RobotsTxtImportRunner implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         try {
             RobotsTxtImportReport report = importer.importInitial();
-            LOGGER.info(
-                    "Import robots.txt terminé : lignes={}, valides={}, "
-                            + "doublons={}, ignorées={}, invalides={}, "
-                            + "créés={}, existants={}",
-                    report.totalLines(),
-                    report.valid(),
-                    report.duplicates(),
-                    report.ignored(),
-                    report.invalid(),
-                    report.created(),
-                    report.existing()
-            );
+            logReport("Import robots.txt terminé", report, null);
         } catch (RobotsTxtImportException exception) {
-            RobotsTxtImportReport report = exception.report();
-            LOGGER.error(
-                    "Import robots.txt interrompu sur {} : lignes={}, "
-                            + "valides={}, doublons={}, ignorées={}, "
-                            + "invalides={}, créés={}, existants={}",
-                    exception.failedIdentifier(),
-                    report.totalLines(),
-                    report.valid(),
-                    report.duplicates(),
-                    report.ignored(),
-                    report.invalid(),
-                    report.created(),
-                    report.existing()
+            logReport(
+                    "Import robots.txt interrompu sur " + exception.failedIdentifier(),
+                    exception.report(),
+                    exception
             );
             throw exception;
+        }
+    }
+
+    private void logReport(String message, RobotsTxtImportReport report, Throwable cause) {
+        String formatted = message + " : lignes={}, valides={}, doublons={}, ignorées={}, "
+                + "invalides={}, créés={}, existants={}";
+        if (cause != null) {
+            LOGGER.error(formatted,
+                    report.totalLines(), report.valid(), report.duplicates(),
+                    report.ignored(), report.invalid(), report.created(),
+                    report.existing(), cause);
+        } else {
+            LOGGER.info(formatted,
+                    report.totalLines(), report.valid(), report.duplicates(),
+                    report.ignored(), report.invalid(), report.created(),
+                    report.existing());
         }
     }
 }
